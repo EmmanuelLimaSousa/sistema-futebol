@@ -1,0 +1,340 @@
+:root {
+    --primary: #00d2ff;
+    --secondary: #3a7bd5;
+    --dark: #1a1a2e;
+    --light: #eaeaea;
+    --danger: #e94560;
+    --card-bg: #16213e;
+}
+
+body {
+    margin: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--dark);
+    color: var(--light);
+}
+
+.app-container {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 20px;
+    padding-bottom: 80px; /* Espaço para botão flutuante */
+}
+
+header {
+    text-align: center;
+    margin-bottom: 20px;
+    color: var(--primary);
+}
+
+header #btn-admin-panel {
+    display: none;
+    margin: -10px auto 15px auto;
+    background: var(--secondary);
+    color: white;
+    font-size: 0.8rem;
+    padding: 5px 10px;
+    border: 1px solid var(--primary);
+    width: auto;
+}
+
+/* Inputs e Controles */
+.input-group {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 15px;
+}
+
+input {
+    flex: 1;
+    padding: 12px;
+    border-radius: 8px;
+    border: none;
+    background: var(--card-bg);
+    color: white;
+    font-size: 16px;
+}
+
+button {
+    cursor: pointer;
+    border: none;
+    border-radius: 8px;
+    padding: 12px 20px;
+    font-weight: bold;
+    transition: 0.2s;
+}
+
+.input-group button {
+    background: var(--primary);
+    color: var(--dark);
+}
+
+.controls {
+    background: var(--card-bg);
+    padding: 10px;
+    border-radius: 8px;
+    margin-bottom: 20px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.controls input {
+    width: 50px;
+    text-align: center;
+    flex: none;
+}
+
+/* Lista de Jogadores */
+ul {
+    list-style: none;
+    padding: 0;
+}
+
+li {
+    background: var(--card-bg);
+    margin-bottom: 8px;
+    padding: 10px 15px;
+    border-radius: 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    animation: fadeIn 0.3s;
+}
+
+li.present i {
+    color: #00ff88;
+    text-shadow: 0 0 8px rgba(0, 255, 136, 0.4);
+}
+
+li button {
+    background: transparent;
+    color: var(--danger);
+    padding: 5px;
+}
+
+/* Cards de Times */
+.team-card {
+    background: var(--card-bg);
+    border-top: 4px solid var(--primary);
+    padding: 15px;
+    margin-bottom: 15px;
+    border-radius: 8px;
+}
+
+.team-card h3 {
+    margin-top: 0;
+    color: var(--secondary);
+}
+
+.login-card {
+    max-width: 400px;
+    margin: 40px auto;
+}
+
+.form-error {
+    color: var(--danger);
+    text-align: center;
+    display: none;
+    margin-top: 10px;
+    font-size: 0.9rem;
+}
+
+.form-link {
+    text-align: center;
+    margin-top: 15px;
+    font-size: 0.9rem;
+}
+
+.form-link a {
+    color: var(--primary);
+    text-decoration: none;
+}
+
+/* Painel de Administração Moderno */
+.admin-panel-card {
+    background: var(--card-bg);
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.admin-panel-card h3 {
+    margin-top: 0;
+    text-align: center;
+    margin-bottom: 20px;
+}
+
+#adminUserList {
+    max-height: 45vh;
+    overflow-y: auto;
+    padding-right: 5px; /* Espaço para a barra de rolagem */
+}
+
+.admin-user-card {
+    background: #1f2b4d;
+    padding: 15px;
+    border-radius: 8px;
+    margin-bottom: 10px;
+    border-left: 4px solid var(--secondary);
+    transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+}
+
+.admin-user-card:hover {
+    transform: translateX(5px);
+    box-shadow: 0 0 15px rgba(0, 210, 255, 0.1);
+}
+
+.admin-user-card.admin-card {
+    border-left-color: #ffd700; /* Cor dourada para o admin */
+}
+
+.user-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 10px;
+}
+
+.user-header strong {
+    font-size: 1.1rem;
+}
+
+.user-header strong .fa-crown {
+    color: #ffd700;
+}
+
+.user-status {
+    font-size: 0.7rem;
+    font-weight: bold;
+    padding: 3px 8px;
+    border-radius: 12px;
+    color: var(--dark);
+    text-transform: uppercase;
+}
+
+.user-status.active { background-color: #00ff88; }
+.user-status.expired { background-color: var(--danger); color: white; }
+.user-status.admin { background-color: #ffd700; }
+
+.user-details p {
+    font-size: 0.8rem;
+    color: #aaa;
+    margin: 2px 0;
+}
+
+.user-actions {
+    display: flex;
+    gap: 10px;
+    margin-top: 15px;
+}
+
+.user-actions button {
+    flex: 1;
+    font-size: 0.8rem;
+    padding: 8px;
+}
+
+.user-actions-placeholder {
+    text-align: center;
+    font-size: 0.8rem;
+    color: #aaa;
+    margin-top: 15px;
+    padding: 8px;
+    background: rgba(0,0,0,0.2);
+    border-radius: 4px;
+}
+
+/* Estatísticas do Painel Admin */
+#admin-stats-container {
+    display: flex;
+    gap: 10px;
+    margin-bottom: 20px;
+    justify-content: space-around;
+}
+
+.stat-box {
+    background-color: #1f2b4d;
+    padding: 15px;
+    border-radius: 8px;
+    text-align: center;
+    flex: 1;
+    border-bottom: 3px solid var(--primary);
+}
+
+.stat-box h4 {
+    margin: 0 0 5px 0;
+    font-size: 1.5rem;
+    color: white;
+}
+
+.stat-box p {
+    margin: 0;
+    font-size: 0.8rem;
+    color: #aaa;
+}
+
+/* Confrontos */
+.match-card {
+    background: linear-gradient(45deg, #16213e, #1f2b4d);
+    padding: 15px;
+    margin-bottom: 10px;
+    border-radius: 8px;
+    text-align: center;
+    border: 1px solid var(--secondary);
+}
+
+.vs {
+    font-weight: bold;
+    color: var(--primary);
+    font-size: 1.2em;
+    margin: 0 10px;
+}
+
+/* Botões de Ação */
+.floating-action {
+    position: fixed;
+    bottom: 20px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 90%;
+    max-width: 580px;
+}
+
+.btn-primary {
+    width: 100%;
+    background: linear-gradient(to right, var(--secondary), var(--primary));
+    color: white;
+    font-size: 18px;
+    box-shadow: 0 4px 15px rgba(0, 210, 255, 0.3);
+}
+
+.btn-secondary {
+    width: 100%;
+    background: var(--card-bg);
+    color: var(--light);
+    border: 1px solid var(--light);
+}
+
+/* Utilitários */
+.hidden { display: none; }
+.active { display: block; }
+
+@keyframes fadeIn {
+    from { opacity: 0; transform: translateY(10px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+/* --- Responsividade para Celulares --- */
+@media (max-width: 480px) {
+    .app-container {
+        padding: 10px;
+        padding-bottom: 80px;
+    }
+
+    .controls {
+        flex-direction: column;
+        gap: 10px;
+        align-items: stretch;
+    }
+}
+}

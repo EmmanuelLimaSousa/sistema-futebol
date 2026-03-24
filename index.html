@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>FutApp</title>
+    <link rel="stylesheet" href="style.css">
+    <!-- Ícones para visual de app -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+</head>
+<body>
+
+    <div class="app-container">
+        <header>
+            <h1><i class="fas fa-futbol"></i> FutApp</h1>
+            <p style="font-size: 0.8rem; opacity: 0.6; margin-top: -15px;">v2.0 - Acesso Restrito</p>
+        </header>
+
+        <!-- Tela de Login -->
+        <section id="screen-login" class="active">
+            <div class="team-card login-card">
+                <h3><i class="fas fa-lock"></i> Acesso Restrito</h3>
+                <div class="input-group" style="flex-direction: column;">
+                    <input type="text" id="loginUser" placeholder="Usuário">
+                    <input type="password" id="loginPass" placeholder="Senha">
+                    <button onclick="performLogin()" class="btn-primary" style="margin-top: 10px;">Entrar</button>
+                </div>
+                <p id="login-error" class="form-error">Usuário ou senha incorretos!</p>
+                <p class="form-link">Não tem uma conta? <a href="#" onclick="showSignupScreen()">Cadastre-se</a></p>
+            </div>
+        </section>
+
+        <!-- Tela de Cadastro de Usuário (Nova) -->
+        <section id="screen-signup" class="hidden">
+            <div class="team-card login-card">
+                <h3><i class="fas fa-user-plus"></i> Criar Conta</h3>
+                <div class="input-group" style="flex-direction: column;">
+                    <input type="text" id="signupUser" placeholder="Crie um usuário">
+                    <input type="password" id="signupPass" placeholder="Crie uma senha">
+                    <button onclick="performSignup()" class="btn-primary" style="margin-top: 10px;">Cadastrar</button>
+                </div>
+                <p id="signup-error" class="form-error"></p>
+                <p class="form-link">Já tem uma conta? <a href="#" onclick="showLoginScreen()">Faça o login</a></p>
+            </div>
+        </section>
+
+        <!-- Tela 1: Cadastro de Jogadores -->
+        <section id="screen-register" class="hidden">
+            <div class="input-group">
+                <input type="text" id="playerInput" placeholder="Nome do jogador...">
+                <button onclick="addPlayer()"><i class="fas fa-plus"></i></button>
+            </div>
+            
+            <div class="controls">
+                <label>Jogadores por time:</label>
+                <input type="number" id="teamSize" value="5" min="1" max="11">
+            </div>
+
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                <small style="color: #aaa;">Toque no nome para confirmar presença</small>
+                <button onclick="resetPresence()" style="padding: 5px 10px; font-size: 12px; background: #333;"><i class="fas fa-eraser"></i> Limpar Chamada</button>
+            </div>
+
+            <ul id="playerList">
+                <!-- Lista de jogadores aparecerá aqui -->
+            </ul>
+
+            <div class="floating-action">
+                <button class="btn-primary" onclick="generateTeams()">
+                    <i class="fas fa-random"></i> Sortear Times
+                </button>
+            </div>
+        </section>
+
+        <!-- Tela 2: Resultados (Times e Jogos) -->
+        <section id="screen-results" class="hidden">
+            <div class="tabs" style="display: flex; justify-content: center; gap: 10px;">
+                <button class="active" onclick="showTab('teams')">Times</button>
+                <button onclick="showTab('matches')">Confrontos</button>
+            </div>
+
+            <div id="results-container">
+                <!-- Times gerados aqui -->
+            </div>
+            
+            <div class="floating-action">
+                <button class="btn-secondary" onclick="resetApp()">
+                    <i class="fas fa-undo"></i> Voltar / Reiniciar
+                </button>
+            </div>
+        </section>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
