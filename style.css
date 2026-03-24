@@ -12,6 +12,8 @@ body {
     font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
     background-color: var(--dark);
     color: var(--light);
+    background-image: none;
+    transition: none;
 }
 
 .app-container {
