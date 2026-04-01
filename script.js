@@ -1,3 +1,6 @@
+// Configurações Globais
+const ADMIN_PASSWORD = "19762207";
+
 // Importar módulos do Node.js para criar arquivos no computador
 let fs, path;
 let isElectron = false;
@@ -5,7 +8,7 @@ let isElectron = false;
 // Prevenção de erro ao tentar rodar via terminal (node script.js)
 if (typeof document === 'undefined') {
     console.error("\n[ERRO] O arquivo 'script.js' é de Interface e precisa de um navegador/janela.");
-    console.error("DICA: Abra o 'index.html' ou execute o executável do aplicativo.\n");
+    console.error("DICA: Abra o 'index.html' ou rode 'npm start' (se configurado com Electron).\n");
     if (typeof process !== 'undefined') process.exit(1);
 }
 
@@ -32,7 +35,7 @@ let loginUserInput, loginPassInput, loginErrorMsg,
     signupEmailInput, signupStep1, signupStep2;
 // Elementos Admin
 let adminPanelBtn, adminUserList, adminSearchInput,
-    adminAuthEmail, adminAuthPlan, adminAuthDuration, adminAuthValue;
+    adminAuthEmail, adminAuthPlan, adminAuthDuration;
 
 // Variável de estado
 let loggedInUser = null;
@@ -62,8 +65,34 @@ if (isElectron) {
     }
 }
 
+// --- TEMA CLARO / ESCURO ---
+
+function applyTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    const btn = document.getElementById('theme-toggle');
+    if (btn) {
+        btn.innerHTML = theme === 'dark'
+            ? '<i class="fas fa-sun"></i>'
+            : '<i class="fas fa-moon"></i>';
+        btn.title = theme === 'dark' ? 'Mudar para tema claro' : 'Mudar para tema escuro';
+    }
+}
+
+function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme') || 'dark';
+    const next = current === 'dark' ? 'light' : 'dark';
+    applyTheme(next);
+    localStorage.setItem('futapp_theme', next);
+}
+
+window.toggleTheme = toggleTheme;
+
 // Inicialização quando o DOM estiver pronto
 document.addEventListener('DOMContentLoaded', () => {
+    // --- TEMA ---
+    const savedTheme = localStorage.getItem('futapp_theme') || 'dark';
+    applyTheme(savedTheme);
+
     input = document.getElementById('playerInput');
     list = document.getElementById('playerList');
     teamSizeInput = document.getElementById('teamSize');
@@ -73,10 +102,10 @@ document.addEventListener('DOMContentLoaded', () => {
     loginPassInput = document.getElementById('loginPass');
     loginErrorMsg = document.getElementById('login-error');
     
-    signupEmailInput = document.getElementById('signupEmail');
     signupUserInput = document.getElementById('signupUser');
     signupPassInput = document.getElementById('signupPass');
     signupErrorMsg = document.getElementById('signup-error');
+    signupEmailInput = document.getElementById('signupEmail');
     signupStep1 = document.getElementById('signup-step-1');
     signupStep2 = document.getElementById('signup-step-2');
 
@@ -84,12 +113,10 @@ document.addEventListener('DOMContentLoaded', () => {
     adminUserList = document.getElementById('adminUserList');
     adminSearchInput = document.getElementById('adminSearchInput');
     
-    // Novos elementos Admin
     adminAuthEmail = document.getElementById('adminAuthEmail');
-    adminAuthValue = document.getElementById('adminAuthValue');
     adminAuthPlan = document.getElementById('adminAuthPlan');
     adminAuthDuration = document.getElementById('adminAuthDuration');
-
+    
     userSession = document.getElementById('user-session');
     userSessionName = document.getElementById('user-session-name');
 
@@ -148,7 +175,7 @@ function performLogin() {
         document.getElementById('screen-login').classList.remove('active');
 
         // Mostra informações de sessão
-        if (userSessionName) userSessionName.innerText = loggedInUser.user;
+        if (userSessionName) userSessionName.innerText = `Logado como: ${loggedInUser.user}`;
         if (userSession) userSession.classList.remove('hidden');
 
         // Lógica de Redirecionamento
@@ -173,14 +200,14 @@ function performLogin() {
             } else {
                 uiPanel.classList.remove('hidden');
                 document.getElementById('ui-plan').innerText = validUser.planName || 'Mensal';
-                document.getElementById('ui-value').innerText = `R$ ${validUser.planValue || '0,00'}`;
                 document.getElementById('ui-start').innerText = validUser.createdAt ? new Date(validUser.createdAt).toLocaleDateString('pt-BR') : 'N/A';
                 document.getElementById('ui-end').innerText = validUser.expiration ? new Date(validUser.expiration).toLocaleDateString('pt-BR') : 'N/A';
             }
         }
 
         // Esconde o texto "v2.0"
-        document.querySelector('header > p').classList.add('hidden');
+        const versionTag = document.getElementById('version-tag');
+        if (versionTag) versionTag.classList.add('hidden');
     } else {
         // Login Falha
         loginErrorMsg.style.display = 'block';
@@ -202,7 +229,8 @@ function logout() {
     if (userSession) userSession.classList.add('hidden');
     adminPanelBtn.classList.add('hidden');
     adminPanelBtn.style.display = 'none';
-    document.querySelector('header > p').classList.remove('hidden');
+    const versionTag = document.getElementById('version-tag');
+    if (versionTag) versionTag.classList.remove('hidden');
     
     // Esconde o painel de info do usuário
     const uiPanel = document.getElementById('user-info-panel');
@@ -242,10 +270,6 @@ function showLoginScreen() {
 function showAdminScreen() {
     if (!loggedInUser || loggedInUser.role !== 'admin') return;
     // Esconde outras telas
-    // Garante que o login sumiu
-    document.getElementById('screen-login').classList.add('hidden');
-    document.getElementById('screen-login').classList.remove('active');
-    
     document.getElementById('screen-register').classList.add('hidden');
     document.getElementById('screen-register').classList.remove('active');
     document.getElementById('screen-admin').classList.remove('hidden');
@@ -274,12 +298,10 @@ window.verifySignupEmail = function() {
         return;
     }
 
-    // Procura por um usuário com este email E que esteja com status 'pending' (ou seja, autorizado mas sem cadastro)
-    // OU um usuário que já tenha email mas ainda não tenha user/pass (caso de migração)
+    // Procura por um usuário com este email E que esteja com status 'pending'
     const index = usersDB.findIndex(u => u.email && u.email.toLowerCase() === email.toLowerCase());
 
     if (index !== -1 && usersDB[index].role === 'pending') {
-        // Email encontrado e autorizado!
         pendingUserIndex = index;
         signupStep1.classList.add('hidden');
         signupStep2.classList.remove('hidden');
@@ -311,7 +333,7 @@ function performSignup() {
         return;
     }
 
-    // Verifica se o NOME DE USUÁRIO já existe
+    // Verifica se o usuário já existe (ignorando maiúsculas/minúsculas)
     const userExists = usersDB.some(u => u.user.toLowerCase() === user.toLowerCase());
     if (userExists) {
         signupErrorMsg.innerText = "Este nome de usuário já está em uso.";
@@ -322,12 +344,12 @@ function performSignup() {
     // Atualiza o registro pendente para um usuário ativo
     usersDB[pendingUserIndex].user = user;
     usersDB[pendingUserIndex].pass = pass;
-    usersDB[pendingUserIndex].role = "user"; // Ativa o usuário
+    usersDB[pendingUserIndex].role = "user"; 
     usersDB[pendingUserIndex].registeredAt = new Date().toISOString();
     
     saveUsersDB();
 
-    // Limpa campos
+    // Limpa campos e volta para a tela de login suavemente
     signupUserInput.value = '';
     signupPassInput.value = '';
     signupEmailInput.value = '';
@@ -357,11 +379,9 @@ function saveUsersDB() {
 
 // --- FUNÇÕES DO PAINEL ADMIN ---
 
-// Nova função: Autorizar usuário por email
 window.adminAuthorizeUser = function() {
     if (!loggedInUser || loggedInUser.role !== 'admin') return;
     const email = adminAuthEmail.value.trim();
-    const valInput = adminAuthValue.value.trim();
     const plan = adminAuthPlan.value;
     const duration = parseInt(adminAuthDuration.value);
 
@@ -370,24 +390,22 @@ window.adminAuthorizeUser = function() {
         return;
     }
 
-    // Verifica se e-mail já existe
     if (usersDB.some(u => u.email && u.email.toLowerCase() === email.toLowerCase())) {
         alert("Este e-mail já está autorizado ou cadastrado.");
         return;
     }
 
-    // Calcula data de expiração automaticamente (Hoje + Dias escolhidos)
     const expDate = new Date();
     expDate.setDate(expDate.getDate() + duration);
     expDate.setHours(23, 59, 59, 999);
 
     usersDB.push({
-        user: "Pendente (" + email + ")", // Placeholder até o cadastro real
+        user: "Pendente (" + email + ")",
         pass: "",
         email: email,
-        role: "pending", // Status especial
+        role: "pending",
         planName: plan,
-        planValue: valInput || "0,00",
+        planValue: "0,00",
         expiration: expDate.toISOString(),
         createdAt: new Date().toISOString()
     });
@@ -395,8 +413,7 @@ window.adminAuthorizeUser = function() {
     saveUsersDB();
     renderAdminUserList(adminSearchInput.value.trim());
     adminAuthEmail.value = '';
-    adminAuthValue.value = '';
-    alert(`Acesso autorizado para ${email}! O usuário pode se cadastrar agora.`);
+    alert(`Acesso autorizado para ${email}!`);
 }
 
 function renderAdminUserList(searchTerm = '') {
@@ -465,10 +482,9 @@ function renderAdminUserList(searchTerm = '') {
             statusText = 'Admin';
             actionsHTML = `<div class="user-actions-placeholder">Você está gerenciando como este usuário.</div>`;
         } else if (user.role === 'pending') {
-            statusClass = 'expired'; // Usa cor de alerta ou cria nova css
-            statusText = 'Pendente'; // Aguardando cadastro
-            // Permite excluir convites pendentes
-            actionsHTML = `<div class="user-actions"><button onclick="adminDeleteUser('${user.user}')" style="background: var(--danger); color: white;"><i class="fas fa-trash"></i> Cancelar Convite</button></div>`;
+            statusClass = 'expired';
+            statusText = 'Pendente';
+            actionsHTML = `<div class="user-actions"><button onclick="adminDeleteUser('${user.user}')" style="background: var(--danger); color: white;"><i class="fas fa-trash"></i> Cancelar</button></div>`;
         } else {
             const isExpired = new Date() > expirationDate;
             statusClass = isExpired ? 'expired' : 'active';
@@ -485,14 +501,6 @@ function renderAdminUserList(searchTerm = '') {
             `;
         }
 
-        const displayPlan = user.role === 'admin' 
-            ? `<strong>${planName}</strong>`
-            : `<input type="text" value="${planName}" onchange="adminUpdateUserField('${user.user}', 'planName', this.value)" style="background: rgba(255,255,255,0.1); border: 1px solid var(--secondary); color: white; padding: 2px 5px; border-radius: 4px; width: 100px;">`;
-            
-        const displayValue = user.role === 'admin'
-            ? `<strong>R$ ${planValue}</strong>`
-            : `R$ <input type="text" value="${planValue}" onchange="adminUpdateUserField('${user.user}', 'planValue', this.value)" style="background: rgba(255,255,255,0.1); border: 1px solid var(--secondary); color: white; padding: 2px 5px; border-radius: 4px; width: 80px;">`;
-
         li.innerHTML = `
             <div class="user-header">
                 <strong><i class="fas ${user.role === 'admin' ? 'fa-crown' : (user.role === 'pending' ? 'fa-envelope' : 'fa-user')}"></i> ${user.role === 'pending' ? user.email : user.user}</strong>
@@ -500,8 +508,8 @@ function renderAdminUserList(searchTerm = '') {
             </div>
             <div class="user-details">
                 <p>Início do Plano: <strong>${creationDate}</strong></p>
-                <p>Plano: ${displayPlan}</p>
-                <p>Valor Pago: ${displayValue}</p>
+                <p>Plano: <strong ${user.role !== 'admin' && user.role !== 'pending' ? `onclick="adminEditPlan('${user.user}')" style="cursor:pointer; color:var(--primary)" title="Clique para editar"` : ''}>${planName} ${user.role !== 'admin' && user.role !== 'pending' ? '<i class="fas fa-pen" style="font-size:0.8em; margin-left:5px;"></i>' : ''}</strong></p>
+                <p>Valor Pago: <strong ${user.role !== 'admin' && user.role !== 'pending' ? `onclick="adminEditValue('${user.user}')" style="cursor:pointer; color:var(--primary)" title="Clique para editar"` : ''}>R$ ${planValue} ${user.role !== 'admin' && user.role !== 'pending' ? '<i class="fas fa-pen" style="font-size:0.8em; margin-left:5px;"></i>' : ''}</strong></p>
                 <p>Vencimento: <strong>${expirationDate.toLocaleDateString('pt-BR')}</strong></p>
             </div>
             ${actionsHTML}
@@ -531,16 +539,6 @@ function adminEditValue(username) {
     const newValue = prompt(`Editar valor pago por ${username} (R$):`, user.planValue || "0,00");
     if (newValue !== null && newValue.trim() !== "") {
         user.planValue = newValue.trim();
-        saveUsersDB();
-        renderAdminUserList(adminSearchInput.value.trim());
-    }
-}
-
-window.adminUpdateUserField = function(username, field, newValue) {
-    if (!loggedInUser || loggedInUser.role !== 'admin') return;
-    const user = usersDB.find(u => u.user === username);
-    if (user) {
-        user[field] = newValue.trim();
         saveUsersDB();
         renderAdminUserList(adminSearchInput.value.trim());
     }
@@ -645,18 +643,17 @@ function loadUsersDB() {
             usersDB = data ? JSON.parse(data) : [];
         }
 
-        // Verifica se o admin existe e garante a senha correta
+        // Garante admin com senha correta
         const adminIndex = usersDB.findIndex(u => u.user === 'admin');
         if (adminIndex !== -1) {
-            if (usersDB[adminIndex].pass !== "19762207") { // Garante senha
-                usersDB[adminIndex].pass = "19762207";
+            if (usersDB[adminIndex].pass !== ADMIN_PASSWORD) {
+                usersDB[adminIndex].pass = ADMIN_PASSWORD;
                 saveUsersDB();
             }
         } else {
-            // Se não existe, cria
             usersDB.push({ 
                 user: "admin", 
-                pass: "19762207", 
+                pass: ADMIN_PASSWORD, 
                 role: "admin", 
                 createdAt: new Date().toISOString(), 
                 expiration: "2099-12-31T23:59:59.000Z", 
@@ -668,7 +665,7 @@ function loadUsersDB() {
     } catch (error) {
         console.error("Erro ao carregar banco de dados de usuários:", error);
         usersDB = [
-            { user: "admin", pass: "19762207", role: "admin", createdAt: new Date().toISOString(), expiration: "2099-12-31T23:59:59.000Z", planName: "Vitalício", planValue: "0,00" }
+            { user: "admin", pass: ADMIN_PASSWORD, role: "admin", createdAt: new Date().toISOString(), expiration: "2099-12-31T23:59:59.000Z", planName: "Vitalício", planValue: "0,00" }
         ];
     }
 }
@@ -851,13 +848,18 @@ function displayResults(teams) {
 function showTab(tabName) {
     const teamsView = document.getElementById('teams-view');
     const matchesView = document.getElementById('matches-view');
+    const buttons = document.querySelectorAll('.tabs button');
 
     if (tabName === 'teams') {
         teamsView.classList.remove('hidden');
         matchesView.classList.add('hidden');
+        if (buttons[0]) buttons[0].classList.add('active');
+        if (buttons[1]) buttons[1].classList.remove('active');
     } else {
         teamsView.classList.add('hidden');
         matchesView.classList.remove('hidden');
+        if (buttons[0]) buttons[0].classList.remove('active');
+        if (buttons[1]) buttons[1].classList.add('active');
     }
 }
 
