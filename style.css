@@ -727,7 +727,7 @@ li button.delete-btn:hover {
 }
 
 .user-header strong {
-    font-size: 1rem;
+    font-size: 0.9rem;
     color: var(--light);
     display: flex;
     align-items: center;
@@ -766,16 +766,26 @@ li button.delete-btn:hover {
     border: 1px solid rgba(255, 215, 0, 0.4);
 }
 
-.user-details p {
-    font-size: 0.8rem;
-    color: var(--muted);
-    margin: 3px 0;
+.user-info-row {
     display: flex;
-    gap: 4px;
+    justify-content: space-between;
+    align-items: center;
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+    font-size: 0.75rem;
+    color: var(--muted);
 }
 
-.user-details p strong {
+.user-info-row strong {
     color: var(--light);
+    font-weight: 600;
+}
+
+.user-details {
+    margin-bottom: 12px;
+    background: rgba(0,0,0,0.1);
+    padding: 8px;
+    border-radius: 8px;
 }
 
 .user-actions {
@@ -786,7 +796,7 @@ li button.delete-btn:hover {
 
 .user-actions button {
     flex: 1;
-    font-size: 0.8rem;
+    font-size: 0.72rem; /* Botões mais compactos */
     padding: 8px 10px;
     border-radius: 8px;
     background: rgba(58, 123, 213, 0.2);
@@ -838,7 +848,7 @@ li button.delete-btn:hover {
 }
 
 .stat-box h4 {
-    font-size: 1.4rem;
+    font-size: 1.2rem;
     font-weight: 800;
     color: var(--primary);
     margin-bottom: 4px;

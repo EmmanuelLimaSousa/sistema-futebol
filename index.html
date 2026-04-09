@@ -86,12 +86,32 @@
                 <input type="number" id="teamSize" value="5" min="1" max="11">
             </div>
 
+            <div id="player-stats-bar" style="display: flex; gap: 10px; margin-bottom: 15px;">
+                <div class="stat-box" style="padding: 8px; flex: 1; border-bottom: 2px solid var(--secondary);">
+                    <h4 id="count-total" style="font-size: 1.1rem; margin: 0;">0</h4>
+                    <p style="font-size: 0.65rem; margin: 0; color: var(--muted);">CADASTRADOS</p>
+                </div>
+                <div class="stat-box" style="padding: 8px; flex: 1; border-bottom: 2px solid var(--success);">
+                    <h4 id="count-present" style="font-size: 1.1rem; margin: 0;">0</h4>
+                    <p style="font-size: 0.65rem; margin: 0; color: var(--muted);">PRESENTES</p>
+                </div>
+            </div>
+
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
-                <small style="color: var(--muted); font-size: 0.8rem;"><i class="fas fa-hand-pointer" style="margin-right: 4px;"></i>Toque no nome para confirmar presença</small>
-                <button onclick="resetPresence()" style="padding: 5px 12px; font-size: 12px; background: rgba(255,255,255,0.05); color: var(--muted); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"><i class="fas fa-eraser"></i> Limpar</button>
+                <small style="color: var(--muted); font-size: 0.8rem;"><i class="fas fa-hand-pointer" style="margin-right: 4px;"></i>Toque no nome para presença</small>
+                <button onclick="resetPresence()" style="padding: 5px 12px; font-size: 12px; background: rgba(255,255,255,0.05); color: var(--muted); border: 1px solid rgba(255,255,255,0.1); border-radius: 8px;"><i class="fas fa-eraser"></i> Limpar Chamada</button>
             </div>
 
             <ul id="playerList"></ul>
+
+            <div style="margin-top: 24px; border-top: 1px solid var(--border); padding-top: 20px;">
+                <h3 style="font-size: 0.95rem; color: var(--primary); margin-bottom: 12px;"><i class="fas fa-shield-alt"></i> Nomes dos Times (Opcional)</h3>
+                <div class="input-group">
+                    <input type="text" id="teamNameInput" placeholder="Ex: Real Madrid, Time do João...">
+                    <button onclick="addTeamName()"><i class="fas fa-plus"></i></button>
+                </div>
+                <ul id="teamNameList" style="margin-bottom: 20px;"></ul>
+            </div>
 
             <div class="floating-action">
                 <button class="btn-primary" onclick="generateTeams()">
@@ -119,27 +139,24 @@
         <!-- Tela Admin -->
         <section id="screen-admin" class="hidden">
             <div class="admin-panel-card">
-                <h3><i class="fas fa-users-cog"></i> Gestão Administrativa</h3>
+                <h3><i class="fas fa-users-cog"></i> Gestão de Usuário</h3>
 
                 <div id="admin-stats-container"></div>
 
                 <div style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(0, 210, 255, 0.2);">
-                    <h4 style="margin-top: 0; color: var(--primary); font-size: 0.95rem; margin-bottom: 12px;"><i class="fas fa-plus-circle"></i> Autorizar Novo Usuário</h4>
+                    <h4 style="margin-top: 0; color: var(--primary); font-size: 0.95rem; margin-bottom: 12px;"><i class="fas fa-plus-circle"></i> Novo Acesso</h4>
                     <div class="input-group column" style="gap: 10px;">
                         <input type="email" id="adminAuthEmail" placeholder="E-mail do Cliente">
-                        <input type="text" id="adminAuthValue" placeholder="Valor (R$) ex: 15,90">
                         <div style="display: flex; gap: 10px;">
+                            <input type="text" id="adminAuthValue" placeholder="Valor (R$)" style="flex: 1;">
                             <select id="adminAuthPlan" style="flex: 1; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.07); background: var(--card-bg); color: var(--light); font-size: 14px;">
-                                <option value="Mensal">Plano Mensal</option>
-                                <option value="Credito">Crédito</option>
-                            </select>
-                            <select id="adminAuthDuration" style="flex: 1; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.07); background: var(--card-bg); color: var(--light); font-size: 14px;">
-                                <option value="30">30 Dias</option>
-                                <option value="60">60 Dias</option>
-                                <option value="90">90 Dias</option>
                             </select>
                         </div>
-                        <button class="btn-primary" onclick="adminAuthorizeUser()">Autorizar por E-mail</button>
+                        <div style="display: flex; gap: 10px;">
+                            <select id="adminAuthPlanType" style="width: 100%; padding: 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.07); background: var(--card-bg); color: var(--light); font-size: 14px;">
+                            </select>
+                        </div>
+                        <button class="btn-primary" id="btn-authorize" onclick="adminAuthorizeUser()">Autorizar e Enviar E-mail</button>
                     </div>
                 </div>
 
@@ -147,6 +164,32 @@
                     <input type="text" id="adminSearchInput" placeholder="Buscar usuário...">
                 </div>
                 <ul id="adminUserList"></ul>
+
+                <div class="admin-panel-card" style="margin-top: 20px; border-top: 3px solid var(--primary);">
+                    <h3><i class="fas fa-tags"></i> Gestão de Planos</h3>
+                    <div style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(0, 210, 255, 0.2);">
+                        <h4 style="margin-top: 0; color: var(--primary); font-size: 0.95rem; margin-bottom: 12px;"><i class="fas fa-plus-circle"></i> Criar Novo Plano</h4>
+                        <div class="input-group column" style="gap: 10px;">
+                            <input type="text" id="adminPlanName" placeholder="Nome do Plano (ex: Trimestral)">
+                            <input type="text" id="adminPlanValue" placeholder="Valor (R$) ex: 45,00">
+                            <input type="number" id="adminPlanDuration" placeholder="Duração em Dias (ex: 90)">
+                            <button class="btn-primary" onclick="adminAddPlan()">Salvar Plano</button>
+                        </div>
+                    </div>
+                    <ul id="adminPlanList"></ul>
+                </div>
+
+                <div class="admin-panel-card" style="margin-top: 20px; border-top: 3px solid var(--secondary);">
+                    <h3><i class="fas fa-calendar-alt"></i> Periodicidades (Tipos)</h3>
+                    <div style="background: rgba(0,0,0,0.2); padding: 16px; border-radius: 12px; margin-bottom: 20px; border: 1px solid rgba(58, 123, 213, 0.2);">
+                        <h4 style="margin-top: 0; color: var(--primary); font-size: 0.95rem; margin-bottom: 12px;"><i class="fas fa-plus-circle"></i> Novo Tipo</h4>
+                        <div class="input-group">
+                            <input type="text" id="adminPlanTypeName" placeholder="Ex: Trimestral, Semestral...">
+                            <button class="btn-primary" onclick="adminAddPlanType()">Adicionar</button>
+                        </div>
+                    </div>
+                    <ul id="adminPlanTypeList"></ul>
+                </div>
 
                 <div class="floating-action">
                     <button class="btn-secondary" onclick="backToApp()">

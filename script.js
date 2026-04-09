@@ -2,7 +2,7 @@
 const ADMIN_PASSWORD = "19762207";
 
 // Importar módulos do Node.js para criar arquivos no computador
-let fs, path;
+let fs, path, ipcRenderer;
 let isElectron = false;
 
 // Prevenção de erro ao tentar rodar via terminal (node script.js)
@@ -17,6 +17,7 @@ try {
     if (typeof require !== 'undefined' && typeof process !== 'undefined' && process.versions && process.versions.electron) {
         fs = require('fs');
         path = require('path');
+        ipcRenderer = require('electron').ipcRenderer;
         isElectron = true;
     }
 } catch (e) {
@@ -24,6 +25,7 @@ try {
 }
 
 let players = []; // Agora armazenará objetos: { name: "Nome", present: false }
+let customTeamNames = []; // Lista de nomes personalizados para os times
 
 let usersDB = []; // Será carregado do arquivo
 
@@ -35,33 +37,57 @@ let loginUserInput, loginPassInput, loginErrorMsg,
     signupEmailInput, signupStep1, signupStep2;
 // Elementos Admin
 let adminPanelBtn, adminUserList, adminSearchInput,
-    adminAuthEmail, adminAuthPlan, adminAuthDuration;
+    adminAuthEmail, adminAuthPlan, adminAuthValue,
+    teamNameInput, teamNameList,
+    adminPlanList, adminPlanNameInput, adminPlanValueInput, adminPlanDurationInput;
 
 // Variável de estado
 let loggedInUser = null;
+let plansDB = [];
+let planTypesDB = [];
 
 // --- CONFIGURAÇÃO DO BANCO DE DADOS (ARQUIVO) ---
 let dbPath; // Para jogadores
 let usersDbPath; // Para usuários
+let plansDbPath; // Para planos
+let dataFolder; // Pasta raiz dos dados
+
+let planTypesDbPath;
 
 if (isElectron) {
     try {
         // Tenta pegar o caminho oficial do AppData no Windows
         const appDataPath = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Preferences' : process.env.HOME + "/.local/share");
-        const dataFolder = path.join(appDataPath, 'FutApp-Data');
+        dataFolder = path.join(appDataPath, 'FutApp-Data');
 
         // Cria a pasta se ela não existir
         if (!fs.existsSync(dataFolder)) {
             fs.mkdirSync(dataFolder, { recursive: true });
         }
 
-        dbPath = path.join(dataFolder, 'banco_de_dados.json');
         usersDbPath = path.join(dataFolder, 'usuarios.json'); // Novo arquivo para usuários
+        plansDbPath = path.join(dataFolder, 'planos.json');
+        planTypesDbPath = path.join(dataFolder, 'tipos_planos.json');
     } catch (error) {
         console.error("Erro critico ao configurar pasta:", error);
         // Fallback: tenta salvar na mesma pasta do executável se o AppData falhar
-        dbPath = path.join(__dirname, 'banco_de_dados_fallback.json');
+        dataFolder = __dirname;
         usersDbPath = path.join(__dirname, 'usuarios_fallback.json');
+        plansDbPath = path.join(__dirname, 'planos_fallback.json');
+        planTypesDbPath = path.join(__dirname, 'tipos_planos_fallback.json');
+    }
+}
+
+/**
+ * Define o caminho do banco de dados de jogadores baseado no usuário logado
+ */
+function updateUserDatabasePath(username) {
+    // Usamos o email (ou username original) para manter o vínculo mesmo se o admin renomear o usuário
+    const safeName = username.toLowerCase().trim().replace(/[^a-z0-9]/g, '_');
+    if (isElectron) {
+        dbPath = path.join(dataFolder, `players_${safeName}.json`);
+    } else {
+        dbPath = `futapp_players_${safeName}`;
     }
 }
 
@@ -97,6 +123,9 @@ document.addEventListener('DOMContentLoaded', () => {
     list = document.getElementById('playerList');
     teamSizeInput = document.getElementById('teamSize');
     resultsContainer = document.getElementById('results-container');
+
+    teamNameInput = document.getElementById('teamNameInput');
+    teamNameList = document.getElementById('teamNameList');
     
     loginUserInput = document.getElementById('loginUser');
     loginPassInput = document.getElementById('loginPass');
@@ -113,20 +142,32 @@ document.addEventListener('DOMContentLoaded', () => {
     adminUserList = document.getElementById('adminUserList');
     adminSearchInput = document.getElementById('adminSearchInput');
     
+    adminPlanList = document.getElementById('adminPlanList');
+    adminPlanNameInput = document.getElementById('adminPlanName');
+    adminPlanValueInput = document.getElementById('adminPlanValue');
+    adminPlanDurationInput = document.getElementById('adminPlanDuration');
+
     adminAuthEmail = document.getElementById('adminAuthEmail');
+    adminAuthValue = document.getElementById('adminAuthValue');
     adminAuthPlan = document.getElementById('adminAuthPlan');
-    adminAuthDuration = document.getElementById('adminAuthDuration');
     
     userSession = document.getElementById('user-session');
     userSessionName = document.getElementById('user-session-name');
 
     // Carregar dados salvos ao abrir o app
     loadUsersDB();
-    loadFromDB();
+    loadPlansDB();
+    loadPlanTypesDB();
+    // loadFromDB() removido daqui para carregar apenas após o login
 
     // Adicionar jogador ao pressionar Enter
     input.addEventListener('keypress', function (e) {
         if (e.key === 'Enter') addPlayer();
+    });
+
+    // Adicionar nome de time ao pressionar Enter
+    teamNameInput.addEventListener('keypress', function (e) {
+        if (e.key === 'Enter') addTeamName();
     });
 
     // Login ao pressionar Enter na senha
@@ -156,6 +197,10 @@ function performLogin() {
 
     if (validUser) {
         loggedInUser = validUser; // Armazena o usuário logado
+
+        // Usamos o e-mail para o caminho do BD para evitar perda de dados em caso de renomeação do username
+        updateUserDatabasePath(validUser.email || validUser.user);
+        loadFromDB();
 
         // POLÍTICA DE SEGURANÇA: Verificar data de expiração (se não for admin)
         if (validUser.role !== 'admin') {
@@ -199,7 +244,9 @@ function performLogin() {
                 uiPanel.classList.add('hidden');
             } else {
                 uiPanel.classList.remove('hidden');
-                document.getElementById('ui-plan').innerText = validUser.planName || 'Mensal';
+                const typeDisplay = validUser.planType || 'Mensal';
+                document.getElementById('ui-plan').innerText = `${validUser.planName || 'Plano'} (${typeDisplay})`;
+                document.getElementById('ui-value').innerText = `R$ ${validUser.planValue || '0,00'}`;
                 document.getElementById('ui-start').innerText = validUser.createdAt ? new Date(validUser.createdAt).toLocaleDateString('pt-BR') : 'N/A';
                 document.getElementById('ui-end').innerText = validUser.expiration ? new Date(validUser.expiration).toLocaleDateString('pt-BR') : 'N/A';
             }
@@ -220,6 +267,13 @@ function performLogin() {
 
 function logout() {
     loggedInUser = null;
+    dbPath = null;
+    
+    // Limpa a lista de jogadores da memória e da tela
+    players = [];
+    customTeamNames = [];
+    renderList();
+    renderTeamNameList();
 
     // Esconde todas as telas principais e elementos de sessão
     document.querySelectorAll('section.active').forEach(s => {
@@ -275,6 +329,10 @@ function showAdminScreen() {
     document.getElementById('screen-admin').classList.remove('hidden');
     document.getElementById('screen-admin').classList.add('active');
     renderAdminUserList();
+    renderAdminPlanList();
+    renderAdminPlanTypeList();
+    updatePlanDropdown();
+    updatePlanTypeDropdown();
 }
 
 function backToApp() {
@@ -377,44 +435,102 @@ function saveUsersDB() {
     }
 }
 
+function savePlansDB() {
+    if (isElectron) {
+        try {
+            fs.writeFileSync(plansDbPath, JSON.stringify(plansDB, null, 2));
+        } catch (err) {
+            console.error("Erro ao salvar planos:", err);
+            alert(`ERRO AO SALVAR PLANOS!`);
+        }
+    } else {
+        localStorage.setItem('futapp_plans', JSON.stringify(plansDB));
+    }
+}
+
+function savePlanTypesDB() {
+    if (isElectron) {
+        try {
+            fs.writeFileSync(planTypesDbPath, JSON.stringify(planTypesDB, null, 2));
+        } catch (err) {
+            console.error("Erro ao salvar tipos de planos:", err);
+        }
+    } else {
+        localStorage.setItem('futapp_plan_types', JSON.stringify(planTypesDB));
+    }
+}
+
 // --- FUNÇÕES DO PAINEL ADMIN ---
 
 window.adminAuthorizeUser = function() {
     if (!loggedInUser || loggedInUser.role !== 'admin') return;
     const email = adminAuthEmail.value.trim();
     const plan = adminAuthPlan.value;
-    const duration = parseInt(adminAuthDuration.value);
+    const manualValue = adminAuthValue.value.trim();
+    
+    const planTypeInput = document.getElementById('adminAuthPlanType');
+    const planType = planTypeInput ? planTypeInput.value : 'mensal';
+    const btnAuth = document.getElementById('btn-authorize');
 
     if (!email) {
         alert("Preencha o e-mail.");
         return;
     }
+    
+    btnAuth.disabled = true;
+    btnAuth.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Enviando...';
 
     if (usersDB.some(u => u.email && u.email.toLowerCase() === email.toLowerCase())) {
         alert("Este e-mail já está autorizado ou cadastrado.");
+        btnAuth.disabled = false;
+        btnAuth.innerHTML = "Autorizar e Enviar E-mail";
         return;
     }
+
+    const selectedPlan = plansDB.find(p => p.name === plan);
+    const planValue = manualValue || (selectedPlan ? selectedPlan.value : "0,00");
+    const duration = (selectedPlan ? selectedPlan.duration : 30);
 
     const expDate = new Date();
     expDate.setDate(expDate.getDate() + duration);
     expDate.setHours(23, 59, 59, 999);
 
-    usersDB.push({
+    const novoUsuario = {
+        id: Date.now() + Math.random().toString(36).substr(2, 9),
         user: "Pendente (" + email + ")",
         pass: "",
         email: email,
         role: "pending",
         planName: plan,
-        planValue: "0,00",
+        planType: planType, // 'mensal' ou 'pacote'
+        planValue: planValue,
         expiration: expDate.toISOString(),
         createdAt: new Date().toISOString()
-    });
+    };
+
+    usersDB.push(novoUsuario);
 
     saveUsersDB();
+
+    // Dispara o e-mail via Electron IPC
+    if (isElectron && ipcRenderer) {
+        ipcRenderer.send('enviar-email-acesso', novoUsuario);
+        ipcRenderer.once('email-enviado', (event, response) => {
+            btnAuth.disabled = false;
+            btnAuth.innerHTML = "Autorizar e Enviar E-mail";
+            if (response.success) {
+                alert(`Acesso autorizado! E-mail enviado para ${email}.`);
+            } else {
+                alert(`Autorizado, mas erro ao enviar e-mail: ${response.error}`);
+            }
+        });
+    }
+
     renderAdminUserList(adminSearchInput.value.trim());
     adminAuthEmail.value = '';
-    alert(`Acesso autorizado para ${email}!`);
-}
+    adminAuthValue.value = '';
+    adminAuthPlan.selectedIndex = 0;
+};
 
 function renderAdminUserList(searchTerm = '') {
     // --- CÁLCULO DAS ESTATÍSTICAS ---
@@ -450,7 +566,8 @@ function renderAdminUserList(searchTerm = '') {
     adminUserList.innerHTML = '';
 
     const filteredUsers = usersDB.filter(u =>
-        u.user.toLowerCase().includes(searchTerm.toLowerCase())
+        u.user.toLowerCase().includes(searchTerm.toLowerCase()) ||
+        (u.email && u.email.toLowerCase().includes(searchTerm.toLowerCase()))
     );
 
     // Ordena para mostrar o admin sempre no topo
@@ -473,6 +590,10 @@ function renderAdminUserList(searchTerm = '') {
         const creationDate = user.createdAt ? new Date(user.createdAt).toLocaleDateString('pt-BR') : 'N/A';
         const planName = user.planName || (user.role === 'admin' ? 'Vitalício' : 'Mensal');
         const planValue = user.planValue || '0,00';
+        const planTypeDisplay = user.planType || 'Mensal';
+        
+        const userId = user.id;
+        if (!userId) return; // Proteção contra dados corrompidos
         
         let statusClass, statusText, actionsHTML;
 
@@ -484,17 +605,26 @@ function renderAdminUserList(searchTerm = '') {
         } else if (user.role === 'pending') {
             statusClass = 'expired';
             statusText = 'Pendente';
-            actionsHTML = `<div class="user-actions"><button onclick="adminDeleteUser('${user.user}')" style="background: var(--danger); color: white;"><i class="fas fa-trash"></i> Cancelar</button></div>`;
+            actionsHTML = `
+                <div class="user-actions">
+                    <button onclick="window.adminEditUser('${userId}')">
+                        <i class="fas fa-edit"></i> Editar
+                    </button>
+                    <button onclick="window.adminDeleteUser('${userId}')" style="background: var(--danger); color: white;">
+                        <i class="fas fa-trash"></i> Cancelar
+                    </button>
+                </div>`;
         } else {
             const isExpired = new Date() > expirationDate;
             statusClass = isExpired ? 'expired' : 'active';
             statusText = isExpired ? 'Expirado' : 'Ativo';
             actionsHTML = `
                 <div class="user-actions">
-                    <button onclick="adminExtendUser('${user.user}')">
-                        <i class="fas fa-calendar-plus"></i> +30 Dias
+                    <button onclick="window.adminEditUser('${userId}')">
+                        <i class="fas fa-edit"></i> Editar
                     </button>
-                    <button onclick="adminDeleteUser('${user.user}')" style="background: var(--danger); color: white;">
+                    <button onclick="window.adminChangePassword('${userId}')" title="Alterar Senha"><i class="fas fa-key"></i></button>
+                    <button onclick="window.adminDeleteUser('${userId}')" style="background: var(--danger); color: white;">
                         <i class="fas fa-trash"></i>
                     </button>
                 </div>
@@ -503,14 +633,12 @@ function renderAdminUserList(searchTerm = '') {
 
         li.innerHTML = `
             <div class="user-header">
-                <strong><i class="fas ${user.role === 'admin' ? 'fa-crown' : (user.role === 'pending' ? 'fa-envelope' : 'fa-user')}"></i> ${user.role === 'pending' ? user.email : user.user}</strong>
+                <strong ${user.role !== 'admin' ? `onclick="window.adminEditUser('${userId}')" style="cursor:pointer; color:var(--primary)" title="Clique para editar"` : ''}><i class="fas ${user.role === 'admin' ? 'fa-crown' : (user.role === 'pending' ? 'fa-envelope' : 'fa-user')}"></i> ${user.role === 'pending' ? user.email : user.user} ${user.role !== 'admin' ? '<i class="fas fa-pen" style="font-size:0.7em; margin-left:5px;"></i>' : ''}</strong>
                 <span class="user-status ${statusClass}">${statusText}</span>
             </div>
             <div class="user-details">
-                <p>Início do Plano: <strong>${creationDate}</strong></p>
-                <p>Plano: <strong ${user.role !== 'admin' && user.role !== 'pending' ? `onclick="adminEditPlan('${user.user}')" style="cursor:pointer; color:var(--primary)" title="Clique para editar"` : ''}>${planName} ${user.role !== 'admin' && user.role !== 'pending' ? '<i class="fas fa-pen" style="font-size:0.8em; margin-left:5px;"></i>' : ''}</strong></p>
-                <p>Valor Pago: <strong ${user.role !== 'admin' && user.role !== 'pending' ? `onclick="adminEditValue('${user.user}')" style="cursor:pointer; color:var(--primary)" title="Clique para editar"` : ''}>R$ ${planValue} ${user.role !== 'admin' && user.role !== 'pending' ? '<i class="fas fa-pen" style="font-size:0.8em; margin-left:5px;"></i>' : ''}</strong></p>
-                <p>Vencimento: <strong>${expirationDate.toLocaleDateString('pt-BR')}</strong></p>
+                <div class="user-info-row"><span>Plano:</span> <strong>${planName} (${planTypeDisplay})</strong></div>
+                <div class="user-info-row"><span>E-mail:</span> <strong>${user.email || 'N/A'}</strong></div>
             </div>
             ${actionsHTML}
         `;
@@ -518,12 +646,64 @@ function renderAdminUserList(searchTerm = '') {
     });
 }
 
-function adminEditPlan(username) {
+// --- NOVAS FUNÇÕES DE GESTÃO ---
+
+window.adminChangePassword = function(id) {
+    const user = usersDB.find(u => u.id === id);
+    if (!user || user.role === 'admin') return;
+    
+    const newPass = prompt(`Digite a nova senha para o usuário ${user.user}:`);
+    if (newPass && newPass.trim() !== "") {
+        user.pass = newPass.trim();
+        saveUsersDB();
+        alert("Senha alterada com sucesso!");
+    }
+};
+
+window.adminEditUser = function(id) {
     if (!loggedInUser || loggedInUser.role !== 'admin') return;
-    const user = usersDB.find(u => u.user === username);
+    const user = usersDB.find(u => u.id === id);
+    if (!user || user.role === 'admin') return;
+
+    if (user.role === 'pending') {
+        const newEmail = prompt(`Editar e-mail pendente:`, user.email);
+        if (newEmail && newEmail.trim() !== "") {
+            user.email = newEmail.trim();
+            user.user = "Pendente (" + user.email + ")";
+        }
+    } else {
+        const oldName = user.user;
+        const newNameInput = prompt(`Editar nome de usuário para ${oldName}:`, user.user);
+        if (newNameInput !== null && newNameInput.trim() !== "" && newNameInput.trim() !== oldName) {
+            const cleanName = newNameInput.trim();
+            if (usersDB.some(u => u.user.toLowerCase() === cleanName.toLowerCase() && u.id !== id)) {
+                alert("Este nome de usuário já está em uso.");
+                return;
+            }
+            user.user = cleanName;
+        }
+        
+        const newEmail = prompt(`Editar e-mail para ${user.user}:`, user.email || "");
+        if (newEmail !== null && newEmail.trim() !== "") {
+            user.email = newEmail.trim();
+        }
+
+        const newPass = prompt(`Editar senha (deixe vazio para não alterar):`, "");
+        if (newPass && newPass.trim() !== "") {
+            user.pass = newPass.trim();
+        }
+    }
+
+    saveUsersDB();
+    renderAdminUserList(adminSearchInput.value.trim());
+}
+
+window.adminEditPlan = function(id) {
+    if (!loggedInUser || loggedInUser.role !== 'admin') return;
+    const user = usersDB.find(u => u.id === id);
     if (!user) return;
     
-    const newPlan = prompt(`Editar nome do plano para ${username}:`, user.planName || "Mensal");
+    const newPlan = prompt(`Editar nome do plano para ${user.user}:`, user.planName || "Mensal");
     if (newPlan !== null && newPlan.trim() !== "") {
         user.planName = newPlan.trim();
         saveUsersDB();
@@ -531,12 +711,12 @@ function adminEditPlan(username) {
     }
 }
 
-function adminEditValue(username) {
+window.adminEditValue = function(id) {
     if (!loggedInUser || loggedInUser.role !== 'admin') return;
-    const user = usersDB.find(u => u.user === username);
+    const user = usersDB.find(u => u.id === id);
     if (!user) return;
     
-    const newValue = prompt(`Editar valor pago por ${username} (R$):`, user.planValue || "0,00");
+    const newValue = prompt(`Editar valor pago por ${user.user} (R$):`, user.planValue || "0,00");
     if (newValue !== null && newValue.trim() !== "") {
         user.planValue = newValue.trim();
         saveUsersDB();
@@ -544,42 +724,206 @@ function adminEditValue(username) {
     }
 }
 
-function adminExtendUser(username) {
+window.adminEditStartDate = function(id) {
     if (!loggedInUser || loggedInUser.role !== 'admin') return;
-    const userIndex = usersDB.findIndex(u => u.user === username);
-    if (userIndex === -1) return;
-
-    // Pega a data atual do usuário e soma 30 dias
-    const currentExp = new Date(usersDB[userIndex].expiration);
-    // Se já estiver vencido, soma a partir de HOJE. Se não, soma a partir da data que ele já tem.
-    const baseDate = (currentExp < new Date()) ? new Date() : currentExp;
-
-    baseDate.setDate(baseDate.getDate() + 30);
-    usersDB[userIndex].expiration = baseDate.toISOString();
-    saveUsersDB();
-    renderAdminUserList(adminSearchInput.value.trim());
+    const user = usersDB.find(u => u.id === id);
+    if (!user) return;
+    
+    const current = user.createdAt ? new Date(user.createdAt).toISOString().split('T')[0] : "";
+    const newVal = prompt("Nova data de início (AAAA-MM-DD):", current);
+    if (newVal) {
+        const d = new Date(newVal);
+        if (!isNaN(d.getTime())) {
+            user.createdAt = d.toISOString();
+            saveUsersDB();
+            renderAdminUserList(adminSearchInput.value.trim());
+        }
+    }
 }
 
-function adminDeleteUser(username) {
+window.adminEditExpiration = function(id) {
     if (!loggedInUser || loggedInUser.role !== 'admin') return;
-    if (confirm(`Tem certeza que deseja excluir o usuário "${username}"?`)) {
-        const userIndex = usersDB.findIndex(u => u.user === username);
+    const user = usersDB.find(u => u.id === id);
+    if (!user) return;
+    
+    const current = user.expiration ? new Date(user.expiration).toISOString().split('T')[0] : "";
+    const newVal = prompt("Nova data de vencimento (AAAA-MM-DD):", current);
+    if (newVal) {
+        const d = new Date(newVal);
+        if (!isNaN(d.getTime())) {
+            d.setHours(23, 59, 59, 999);
+            user.expiration = d.toISOString();
+            saveUsersDB();
+            renderAdminUserList(adminSearchInput.value.trim());
+        }
+    }
+}
+
+window.adminDeleteUser = function(id) {
+    if (!loggedInUser || loggedInUser.role !== 'admin') return;
+    const user = usersDB.find(u => u.id === id);
+    if (!user) return;
+    if (confirm(`Tem certeza que deseja excluir o usuário "${user.user}"?`)) {
+        const userIndex = usersDB.indexOf(user);
         if (userIndex === -1) return;
         usersDB.splice(userIndex, 1);
         saveUsersDB();
         renderAdminUserList(adminSearchInput.value.trim());
     }
+};
+
+window.adminAddPlan = function() {
+    const name = adminPlanNameInput.value.trim();
+    const value = adminPlanValueInput.value.trim();
+    const duration = parseInt(adminPlanDurationInput.value);
+
+    if (!name || !value || isNaN(duration)) {
+        alert("Preencha todos os campos do plano corretamente.");
+        return;
+    }
+
+    plansDB.push({
+        id: Date.now(),
+        name,
+        value,
+        duration
+    });
+
+    savePlansDB();
+    renderAdminPlanList();
+    updatePlanDropdown();
+    adminPlanNameInput.value = '';
+    adminPlanValueInput.value = '';
+    adminPlanDurationInput.value = '';
+};
+
+window.renderAdminPlanList = function() {
+    if (!adminPlanList) return;
+    adminPlanList.innerHTML = '';
+    plansDB.forEach(plan => {
+        const li = document.createElement('li');
+        li.className = 'admin-user-card';
+        li.innerHTML = `
+            <div class="user-header">
+                <strong><i class="fas fa-tag"></i> ${plan.name}</strong>
+                <span class="user-status active">Ativo</span>
+            </div>
+            <div class="user-details">
+                <p>Valor Padrão: <strong>R$ ${plan.value}</strong></p>
+                <p>Duração Padrão: <strong>${plan.duration} dias</strong></p>
+            </div>
+            <div class="user-actions">
+                <button onclick="adminEditPlanData(${plan.id})"><i class="fas fa-pen"></i> Editar</button>
+                <button onclick="adminDeletePlan(${plan.id})" style="background: var(--danger); color: white;"><i class="fas fa-trash"></i></button>
+            </div>
+        `;
+        adminPlanList.appendChild(li);
+    });
+};
+
+window.adminEditPlanData = function(id) {
+    const plan = plansDB.find(p => p.id === id);
+    if (!plan) return;
+    
+    const newName = prompt("Editar nome do plano:", plan.name) || plan.name;
+    const newValue = prompt("Editar valor (ex: 15,90):", plan.value) || plan.value;
+    const newDur = prompt("Editar duração em dias:", plan.duration) || plan.duration;
+
+    plan.name = newName;
+    plan.value = newValue;
+    plan.duration = parseInt(newDur);
+
+    savePlansDB();
+    renderAdminPlanList();
+    updatePlanDropdown();
+};
+
+window.adminDeletePlan = function(id) {
+    if (!confirm("Excluir este plano?")) return;
+    plansDB = plansDB.filter(p => p.id !== id);
+    savePlansDB();
+    renderAdminPlanList();
+    updatePlanDropdown();
+};
+
+window.adminAddPlanType = function() {
+    const nameInput = document.getElementById('adminPlanTypeName');
+    const name = nameInput.value.trim();
+    if (!name) return;
+    planTypesDB.push({ id: Date.now(), name });
+    savePlanTypesDB();
+    nameInput.value = '';
+    renderAdminPlanTypeList();
+    updatePlanTypeDropdown();
+};
+
+window.adminEditPlanType = function(id) {
+    const type = planTypesDB.find(t => t.id === id);
+    if (!type) return;
+    const newName = prompt("Editar nome da periodicidade:", type.name);
+    if (newName && newName.trim() !== "") {
+        type.name = newName.trim();
+        savePlanTypesDB();
+        renderAdminPlanTypeList();
+        updatePlanTypeDropdown();
+    }
+};
+
+window.adminDeletePlanType = function(id) {
+    if (!confirm("Excluir esta periodicidade?")) return;
+    planTypesDB = planTypesDB.filter(t => t.id !== id);
+    savePlanTypesDB();
+    renderAdminPlanTypeList();
+    updatePlanTypeDropdown();
+};
+
+window.renderAdminPlanTypeList = function() {
+    const list = document.getElementById('adminPlanTypeList');
+    if (!list) return;
+    list.innerHTML = '';
+    planTypesDB.forEach(type => {
+        const li = document.createElement('li');
+        li.className = 'admin-user-card';
+        li.style.padding = '10px 16px';
+        li.innerHTML = `
+            <div class="user-header" style="margin-bottom:0">
+                <strong><i class="fas fa-calendar-alt"></i> ${type.name}</strong>
+                <div class="user-actions" style="margin-top:0">
+                    <button onclick="adminEditPlanType(${type.id})" style="padding: 4px 8px"><i class="fas fa-pen"></i></button>
+                    <button onclick="adminDeletePlanType(${type.id})" style="background: var(--danger); color: white; padding: 4px 8px"><i class="fas fa-trash"></i></button>
+                </div>
+            </div>
+        `;
+        list.appendChild(li);
+    });
+};
+
+window.updatePlanDropdown = function() {
+    if (!adminAuthPlan) return;
+    adminAuthPlan.innerHTML = plansDB.map(p => 
+        `<option value="${p.name}">${p.name} (R$ ${p.value})</option>`
+    ).join('');
+}
+
+window.updatePlanTypeDropdown = function() {
+    const select = document.getElementById('adminAuthPlanType');
+    if (!select) return;
+    select.innerHTML = planTypesDB.map(t => 
+        `<option value="${t.name}">${t.name}</option>`
+    ).join('');
 }
 
 // Expor funções para o HTML, pois o script é carregado no body
+// As funções agora são atribuídas diretamente a window durante a declaração (Refatorado acima).
+// Adicionamos aqui apenas as que restam sem prefixo window. na declaração original.
 window.logout = logout;
 window.showAdminScreen = showAdminScreen;
 window.backToApp = backToApp;
-window.adminExtendUser = adminExtendUser;
-window.adminDeleteUser = adminDeleteUser;
-window.adminEditPlan = adminEditPlan;
-window.adminEditValue = adminEditValue;
-
+window.addTeamName = addTeamName;
+window.removeTeamName = removeTeamName;
+window.addPlayer = addPlayer;
+window.generateTeams = generateTeams;
+window.resetApp = resetApp;
 function addPlayer() {
     const name = input.value.trim();
     if (name === '') return alert('Digite um nome!');
@@ -620,14 +964,45 @@ function resetPresence() {
 
 // --- Funções de Banco de Dados (Arquivo Físico) ---
 function saveToDB() {
+    if (!loggedInUser || !dbPath) return;
+
+    const dataToSave = {
+        players: players,
+        customTeamNames: customTeamNames
+    };
+
     if (isElectron) {
         try {
-            fs.writeFileSync(dbPath, JSON.stringify(players, null, 2));
+            fs.writeFileSync(dbPath, JSON.stringify(dataToSave, null, 2));
         } catch (err) {
             alert(`ERRO AO SALVAR!\n\nNão foi possível criar o arquivo em:\n${dbPath}\n\nVerifique se a pasta tem permissão de escrita.`);
         }
     } else {
-        localStorage.setItem('futapp_players', JSON.stringify(players));
+        localStorage.setItem(dbPath, JSON.stringify(dataToSave));
+    }
+}
+
+function loadPlansDB() {
+    try {
+        if (isElectron) {
+            if (fs.existsSync(plansDbPath)) {
+                const data = fs.readFileSync(plansDbPath, 'utf-8');
+                plansDB = data ? JSON.parse(data) : [];
+            }
+        } else {
+            const data = localStorage.getItem('futapp_plans');
+            plansDB = data ? JSON.parse(data) : [];
+        }
+        if (plansDB.length === 0) {
+            plansDB = [
+                { id: Date.now(), name: "Mensal", value: "15,90", duration: 30 },
+                { id: Date.now() + 1, name: "Crédito", value: "0,00", duration: 30 }
+            ];
+            savePlansDB();
+        }
+    } catch (error) {
+        console.error("Erro ao carregar planos:", error);
+        plansDB = [];
     }
 }
 
@@ -651,7 +1026,8 @@ function loadUsersDB() {
                 saveUsersDB();
             }
         } else {
-            usersDB.push({ 
+            usersDB.push({
+                id: "admin-root",
                 user: "admin", 
                 pass: ADMIN_PASSWORD, 
                 role: "admin", 
@@ -662,6 +1038,13 @@ function loadUsersDB() {
             });
             saveUsersDB();
         }
+
+        // Migração: Garante que usuários antigos sem ID recebam um
+        usersDB.forEach(u => {
+            if (!u.id) u.id = Date.now() + Math.random().toString(36).substr(2, 9);
+        });
+        saveUsersDB();
+
     } catch (error) {
         console.error("Erro ao carregar banco de dados de usuários:", error);
         usersDB = [
@@ -670,13 +1053,51 @@ function loadUsersDB() {
     }
 }
 
+function loadPlanTypesDB() {
+    try {
+        if (isElectron) {
+            if (fs.existsSync(planTypesDbPath)) {
+                const data = fs.readFileSync(planTypesDbPath, 'utf-8');
+                planTypesDB = data ? JSON.parse(data) : [];
+            }
+        } else {
+            const data = localStorage.getItem('futapp_plan_types');
+            planTypesDB = data ? JSON.parse(data) : [];
+        }
+        
+        if (planTypesDB.length === 0) {
+            planTypesDB = [
+                { id: 1, name: "Mensal" },
+                { id: 2, name: "Bimestral" },
+                { id: 3, name: "Trimestral" },
+                { id: 4, name: "Semestral" },
+                { id: 5, name: "Anual" }
+            ];
+            savePlanTypesDB();
+        }
+    } catch (e) { console.error(e); }
+}
+
 function loadFromDB() {
+    if (!loggedInUser || !dbPath) return;
+    players = []; // Reseta antes de carregar
+
     if (isElectron) {
         if (fs.existsSync(dbPath)) {
             try {
                 const data = fs.readFileSync(dbPath, 'utf-8');
-                players = data ? JSON.parse(data) : [];
+                const decoded = data ? JSON.parse(data) : [];
+                
+                // Compatibilidade com versões anteriores (onde salvávamos apenas o array de jogadores)
+                if (Array.isArray(decoded)) {
+                    players = decoded;
+                    customTeamNames = [];
+                } else {
+                    players = decoded.players || [];
+                    customTeamNames = decoded.customTeamNames || [];
+                }
                 renderList();
+                renderTeamNameList();
             } catch (error) {
                 console.error("Erro ao ler banco de dados:", error);
             }
@@ -684,17 +1105,38 @@ function loadFromDB() {
             saveToDB(); // Cria o arquivo pela primeira vez
         }
     } else {
-        const data = localStorage.getItem('futapp_players');
+        const data = localStorage.getItem(dbPath);
         if (data) {
-            players = data ? JSON.parse(data) : [];
+            const decoded = JSON.parse(data);
+            if (Array.isArray(decoded)) {
+                players = decoded;
+                customTeamNames = [];
+            } else {
+                players = decoded.players || [];
+                customTeamNames = decoded.customTeamNames || [];
+            }
             renderList();
+            renderTeamNameList();
         }
     }
 }
 
 function renderList() {
-    // Ordena a lista alfabeticamente pelo nome
-    players.sort((a, b) => a.name.localeCompare(b.name));
+    const totalEl = document.getElementById('count-total');
+    const presentEl = document.getElementById('count-present');
+    
+    // Contagem
+    const total = players.length;
+    const present = players.filter(p => p.present).length;
+    
+    if (totalEl) totalEl.innerText = total;
+    if (presentEl) presentEl.innerText = present;
+
+    // Ordena: Presentes primeiro, depois alfabético
+    players.sort((a, b) => {
+        if (a.present === b.present) return a.name.localeCompare(b.name);
+        return a.present ? -1 : 1;
+    });
 
     list.innerHTML = '';
     players.forEach((player, index) => {
@@ -711,6 +1153,35 @@ function renderList() {
             <button class="delete-btn" onclick="removePlayer(${index}, event)"><i class="fas fa-trash"></i></button>
         `;
         list.appendChild(li);
+    });
+}
+
+function addTeamName() {
+    const name = teamNameInput.value.trim();
+    if (!name) return;
+    customTeamNames.push(name);
+    saveToDB();
+    teamNameInput.value = '';
+    renderTeamNameList();
+}
+
+function removeTeamName(index) {
+    customTeamNames.splice(index, 1);
+    saveToDB();
+    renderTeamNameList();
+}
+
+function renderTeamNameList() {
+    if (!teamNameList) return;
+    teamNameList.innerHTML = '';
+    customTeamNames.forEach((name, index) => {
+        const li = document.createElement('li');
+        li.style.cursor = 'default';
+        li.innerHTML = `
+            <span><i class="fas fa-shield-alt"></i> ${name}</span>
+            <button class="delete-btn" onclick="removeTeamName(${index})"><i class="fas fa-trash"></i></button>
+        `;
+        teamNameList.appendChild(li);
     });
 }
 
@@ -768,10 +1239,12 @@ function displayResults(teams) {
 
     teams.forEach((team) => {
         if (team.length === size) {
+            const name = customTeamNames[teamCounter - 1] || `Time ${teamCounter}`;
             fullTeams.push({
-                name: `Time ${teamCounter++}`,
+                name: name,
                 players: team
             });
+            teamCounter++;
         } else {
             reserves.push(...team);
         }
