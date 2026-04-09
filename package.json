@@ -1,0 +1,29 @@
+{
+  "name": "futapp",
+  "version": "3.1.0",
+  "description": "Sistema de Gestão de Futebol",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "clean": "if exist dist rmdir /s /q dist",
+    "dist": "npm run clean && electron-builder --win"
+  },
+  "dependencies": {
+    "nodemailer": "^6.9.0"
+  },
+  "devDependencies": {
+    "electron": "^25.0.0",
+    "electron-builder": "^24.6.4"
+  },
+  "build": {
+    "appId": "com.futapp.futebol",
+    "productName": "FutApp",
+    "win": {
+      "target": "nsis",
+      "icon": "icon.png"
+    },
+    "directories": {
+      "output": "dist"
+    }
+  }
+}

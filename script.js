@@ -56,16 +56,15 @@ let planTypesDbPath;
 
 if (isElectron) {
     try {
-        // Tenta pegar o caminho oficial do AppData no Windows
-        const appDataPath = process.env.APPDATA || (process.platform == 'darwin' ? process.env.HOME + '/Library/Preferences' : process.env.HOME + "/.local/share");
-        dataFolder = path.join(appDataPath, 'FutApp-Data');
+        // Alterado para salvar na pasta 'database' dentro do próprio projeto.
+        // Isso torna os dados "portáteis" para você levar ao GitHub.
+        dataFolder = path.join(__dirname, 'database');
 
-        // Cria a pasta se ela não existir
         if (!fs.existsSync(dataFolder)) {
             fs.mkdirSync(dataFolder, { recursive: true });
         }
 
-        usersDbPath = path.join(dataFolder, 'usuarios.json'); // Novo arquivo para usuários
+        usersDbPath = path.join(dataFolder, 'usuarios.json');
         plansDbPath = path.join(dataFolder, 'planos.json');
         planTypesDbPath = path.join(dataFolder, 'tipos_planos.json');
     } catch (error) {

@@ -793,15 +793,23 @@ li button.delete-btn:hover {
     gap: 8px;
     margin-top: 14px;
 }
+.user-actions {
+    flex-wrap: wrap; /* Permite que os botões quebrem para a próxima linha */
+    justify-content: center; /* Centraliza os botões se eles quebrarem */
+}
 
 .user-actions button {
-    flex: 1;
-    font-size: 0.72rem; /* Botões mais compactos */
     padding: 8px 10px;
     border-radius: 8px;
     background: rgba(58, 123, 213, 0.2);
     color: var(--light);
     border: 1px solid rgba(58, 123, 213, 0.3);
+}
+
+.user-actions button {
+    flex: 1 1 auto; /* Permite que os botões cresçam/encolham e quebrem */
+    font-size: 0.72rem; /* Botões mais compactos */
+    min-width: 80px; /* Impede que os botões fiquem muito pequenos */
 }
 
 .user-actions button:hover {
@@ -835,6 +843,7 @@ li button.delete-btn:hover {
     display: flex;
     gap: 10px;
     margin-bottom: 20px;
+    flex-wrap: wrap; /* Permite que os itens quebrem para a próxima linha */
 }
 
 .stat-box {
@@ -843,8 +852,8 @@ li button.delete-btn:hover {
     border-bottom: 3px solid var(--primary);
     padding: 14px 10px;
     border-radius: 12px;
+    flex: 1 1 150px; /* Permite crescer/encolher, com base de 150px */
     text-align: center;
-    flex: 1;
 }
 
 .stat-box h4 {
@@ -978,9 +987,7 @@ li button.delete-btn:hover {
         padding: 12px 12px 100px;
     }
 
-    header h1 {
-        font-size: 1.8rem;
-    }
+    /* O tamanho da fonte do header h1 agora é tratado por clamp() */
 
     .controls {
         flex-direction: column;
@@ -999,11 +1006,17 @@ li button.delete-btn:hover {
         padding: 14px 12px;
     }
 
-    #admin-stats-container {
+    #admin-stats-container { /* Quando empilhado, remove a base flex */
+        flex-direction: column; /* Empilha verticalmente em telas muito pequenas */
         gap: 8px;
     }
+    .stat-box {
+        flex: 1 1 100%; /* Ocupa a largura total quando empilhado */
+        min-width: unset;
+    }
 
-    .stat-box h4 {
-        font-size: 1.2rem;
+    .user-actions button { /* Quando empilhado, ocupa a largura total */
+        min-width: unset;
+        width: 100%;
     }
 }
